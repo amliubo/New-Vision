@@ -2,10 +2,8 @@ name: Daily News Push
 
 on:
   schedule:
-    # 北京事件8点
     # - cron: '0 0 * * *'
-    # 北京事件18点
-    - cron: '0 22 * * *'
+    - cron: '0 10 * * *'  # UTC 10:00 = 北京时间 18:00
 
   workflow_dispatch: {}
 
