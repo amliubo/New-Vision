@@ -7,8 +7,9 @@ BARK_URL = os.getenv("BARK_URL", "")
 
 # 支持的新闻分类
 TOPICS = {
-    "auto": "汽车行业",
-    "keji": "科技新闻",
+    "auto": "汽车新闻",
+    "ai": "科技新闻",
+    "military":'军事新闻'
     # "world": "国际新闻"
 }
 
