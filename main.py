@@ -26,7 +26,7 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL")
 BRAND_NAME = "新视野N"
 BRAND_COLOR = "#1E88E5"
 BRAND_SLOGAN = "洞察趋势，拓展新视野"
-
+QR_CODE_URL = "https://github.com/amliubo/New-Vision/blob/main/QR.jpg?raw=true"
 # 主题配置
 TOPICS = {
     "ai": "Ai资讯",
