@@ -330,7 +330,7 @@ def push_article_link_to_bark(title, article_url):
     bark_urls = [u.strip().rstrip("/") for u in BARK_URL.split(",") if u.strip()]
     
     link_body = f"""
-        [{BRAND_NAME}日报] - 已更新：{article_url}
+[{BRAND_NAME}日报] - 已更新：{article_url}
     """
     payload = {
         "title": f"{title} (源码复制)",
