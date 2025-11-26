@@ -27,4 +27,10 @@ jobs:
         env:
           TIAN_API_KEY: ${{ secrets.TIAN_API_KEY }}
           BARK_URL: ${{ secrets.BARK_URL }}
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_PASS: ${{ secrets.SFTP_PASS }}
+          REMOTE_UPLOAD_DIR: ${{ secrets.REMOTE_UPLOAD_DIR }}
+          PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
         run: python main.py

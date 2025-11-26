@@ -65,14 +65,27 @@ def generate_styled_content(news_items, report_date, topic_name):
     
     # 🌟 A. 顶部品牌识别区 (Header)
     lines.append(f"""
-        <div style="text-align:center; padding: 15px 0; background-color: #F0F4F8; margin-bottom: 20px; border-radius: 8px;">
-            <p style="font-size: 24px; color: {BRAND_COLOR}; font-weight: bold; margin: 0;">{BRAND_NAME}</p>
-            <p style="font-size: 14px; color: #999; margin: 5px 0 0 0;">{BRAND_SLOGAN}</p>
+        <div style="
+            text-align:center;
+            padding: 1px 0;
+            margin: 4px 0 10px 0;
+            background:#F5F6F7;
+            border-radius:6px;
+            line-height:1;
+        ">
+            <div style="
+                font-size:18px;
+                font-weight:700;
+                color:{BRAND_COLOR};
+            ">{BRAND_NAME}</div>
+
+            <div style="
+                font-size:14px;
+                color:#777;
+                margin-top:1px;
+            ">{BRAND_SLOGAN}</div>
         </div>
     """)
-    
-    # 报告标题
-    lines.append(f'<h2 style="text-align:center; font-size: 20px; color: #333; padding-bottom: 10px; border-bottom: 2px solid {BRAND_COLOR}; margin-bottom: 20px;">{report_date} | {topic_name}精选</h2>')
 
     for idx, n in enumerate(news_items, 1):
         # 🌟 B. 新闻主体品牌润色 (标题和序号)
@@ -90,9 +103,6 @@ def generate_styled_content(news_items, report_date, topic_name):
             lines.append(f'<img src="{pic}" style="width:100%;height:auto; display: block; border-radius: 8px; margin: 10px 0;"><br>')
 
         desc = n.get("description", "")
-        # if desc:
-        #     lines.append(f'<p style="font-size: 15px; color: #666; line-height: 1.6; margin-top: 5px; margin-left: 36px;">{desc}</p><br>')
-
         if desc:
             lines.append(f'<p style="font-size: 15px; color: #555; line-height: 1.7; margin: 0 0 5px 0; text-align: justify; text-indent: 2em;">{desc}</p>')
 
@@ -102,28 +112,22 @@ def generate_styled_content(news_items, report_date, topic_name):
                 <div style="width: 40px; height: 2px; background-color: #ddd; margin: 20px auto;"></div>
             """)
 
-    # 🌟 C. 底部版权与引导区 (Footer) - 放在主内容区内部
     lines.append(f"""
-        <div style="text-align:center; margin-top:30px; padding:20px 10px; border-top:1px dashed #ddd; background-color:#F9F9F9; border-radius:8px;">
-
-            <!-- 二维码 -->
+        <div style="
+            text-align:center;
+            padding: 1px 0;
+            margin-top:14px;
+            background:#F7F7F7;
+            border-radius:6px;
+        ">  
             <img src="{QR_CODE_URL}" alt="二维码" 
-                style="width:120px; height:120px; display:block; margin:0 auto 12px auto; border-radius:6px;">
-
-            <!-- 关注说明 -->
-            <p style="font-size:14px; color:{BRAND_COLOR}; font-weight:bold; margin:0 0 10px 0;">
-                长按二维码关注，获取每日新视野
-            </p>
-
-            <!-- 品牌文案 -->
-            <p style="font-size:12px; color:#888; margin:0;">
-                —— 本日份 {BRAND_NAME} 洞察已送达 ——
-            </p>
-
-            <!-- 版权 -->
-            <p style="font-size:11px; color:#bbb; margin:8px 0 0 0;">
-                © {datetime.now().year} {BRAND_NAME} 版权所有
-            </p>
+                style="width:180px; height:180px; margin:0 auto 10px auto; border-radius:6px; display:block;">
+            <div style="font-size:12px; color:#888; margin-top:2px;">
+                —— 今日 {BRAND_NAME} 资讯已送达 ——
+            </div>
+            <div style="font-size:12px; color:#bbb; margin-top:4px;">
+                © {datetime.now().year} {BRAND_NAME}
+            </div>
         </div>
     """)
 
