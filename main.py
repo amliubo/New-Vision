@@ -14,7 +14,7 @@ TIAN_API_KEY = os.getenv("TIAN_API_KEY")
 BARK_URL = os.getenv("BARK_URL")
 # SFTP 配置 (您的实际服务器信息)
 SFTP_HOST = os.getenv("SFTP_HOST")         # 服务器 IP 或域名
-SFTP_PORT = os.getenv("SFTP_PORT")         # SFTP 端口
+SFTP_PORT = int(os.getenv("SFTP_PORT"))    # SFTP 端口
 SFTP_USER = os.getenv("SFTP_USER")         # SFTP 用户名
 SFTP_PASS = os.getenv("SFTP_PASS")         # SFTP 密码或密钥路径
 # 远程上传目录，对应 Nginx 配置中的 /var/www/reports/
