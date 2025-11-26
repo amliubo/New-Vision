@@ -113,44 +113,27 @@ def generate_styled_content(news_items, report_date, topic_name):
             """)
 
     lines.append(f"""
-        <div style="
-            text-align:center;
-            padding: 1px 0;
-            margin-top:14px;
-            background:#F7F7F7;
-            border-radius:6px;
-        ">  
-            <img src="{QR_CODE_URL}" alt="二维码" 
-                style="width:180px; height:180px; margin:0 auto 10px auto; border-radius:6px; display:block;">
-            <div style="font-size:12px; color:#888; margin-top:2px;">
-                —— 今日 {BRAND_NAME} 资讯已送达 ——
-            </div>
-            <div style="font-size:12px; color:#bbb; margin-top:4px;">
-                © {datetime.now().year} {BRAND_NAME}
-            </div>
-        </div>
+        <img src="{QR_CODE_URL}" alt="二维码" 
+                style="width:180px;height:180px; margin:0 auto 0 auto; border-radius:6px; display:block;">
     """)
 
     return "".join(lines)
 
 def generate_simple_summary_card(news_items, report_title):
     """生成一个简单的摘要卡片，用于浏览器预览"""
-    
-    # 仅展示前5条新闻，用于快速预览
     lines = [f"""
     <div style="background-color: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 25px; font-family: 'Microsoft YaHei', sans-serif; max-width: 400px; margin: 20px auto;">
         <h3 style="color: {BRAND_COLOR}; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px;">{report_title}</h3>
-        <p style="color: #666; font-size: 14px; margin-bottom: 20px; text-align: center;">简要事件汇总 (仅供浏览器预览)</p>
         <ul style="list-style-type: none; padding: 0;">
     """]
     
-    for idx, n in enumerate(news_items[:5], 1): 
+    for idx, n in enumerate(news_items, 1): 
         title = n.get("title", "")
         lines.append(f'<li style="margin-bottom: 12px; font-size: 15px;"><span style="color: {BRAND_COLOR}; font-weight: bold; margin-right: 5px;">{idx}.</span> {title}</li>')
         
-    lines.append("""
+    lines.append(f"""
         </ul>
-        <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #aaa;">请使用上方的按钮获取完整排版内容。</p>
+        <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #aaa;">© {datetime.now().year} {BRAND_NAME}</p>
     </div>
     """)
     return "".join(lines)
@@ -158,16 +141,10 @@ def generate_simple_summary_card(news_items, report_title):
 
 def generate_full_html_document(title, styled_content, news_items):
     """
-    将样式内容包装成完整的 HTML 文档，并添加一键复制功能。
-    """
-    
-    # 1. HTML 转义 styled_content，以便安全地放入 textarea
+    将样式内容包装成完整的 HTML 文档，并添加复制功能。
+    """    
     escaped_styled_content = styled_content.replace('<', '&lt;').replace('>', '&gt;')
-    
-    # 2. 生成浏览器预览用的卡片
     simple_card_html = generate_simple_summary_card(news_items, title)
-
-    # ⚠️ 关键：添加 <meta charset="UTF-8"> 解决乱码问题
     html_template = f"""<!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -175,7 +152,6 @@ def generate_full_html_document(title, styled_content, news_items):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
     <style>
-        /* 这里的 body 字体堆栈是必要的，确保浏览器预览效果正常 */
         body {{
             font-family: "Microsoft YaHei", "微软雅黑", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
             line-height: 1.6;
@@ -221,12 +197,6 @@ def generate_full_html_document(title, styled_content, news_items):
             height: 1px;
             opacity: 0;
         }}
-        #status-message {{
-            min-height: 1.2em;
-            margin-top: 10px;
-            color: #4CAF50;
-            font-weight: bold;
-        }}
         
         /* 浏览器预览区样式 (只包含卡片) */
         #article-content {{
@@ -238,32 +208,15 @@ def generate_full_html_document(title, styled_content, news_items):
 <body>
     <div id="article-wrapper">
         
-        <!-- 🌟 顶部：HTML 源码复制区 (最可靠的复制方式) 🌟 -->
         <div id="copy-area">
-            <p style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 10px;">🏆 复制步骤：获取公众号排版源码</p>
-            <button class="copy-button" id="copy-btn">一键复制 HTML 源码</button>
-            <p id="status-message"></p>
-            <p style="font-size: 12px; color: #666; margin-top: 10px;">将此源码粘贴到公众号编辑器的“HTML代码”模式，即可获得完整排版。</p>
-            <!-- 隐藏的 textarea 包含原始 HTML 片段 (已转义) -->
+            <button class="copy-button" id="copy-btn">Copy Code</button>
             <textarea id="raw-html-source">{escaped_styled_content}</textarea>
         </div>
-
-        <!-- 🌟 浏览器渲染的【简单卡片】预览区 🌟 -->
         <div id="article-content">
             {simple_card_html}
         </div>
-        
     </div>
-    
     <script>
-        // 实现自定义的非 alert 提示框
-        function showStatus(message, isSuccess) {{
-            const statusMessage = document.getElementById('status-message');
-            statusMessage.style.color = isSuccess ? '#4CAF50' : '#F44336';
-            statusMessage.innerText = message;
-            setTimeout(() => statusMessage.innerText = '', 5000); // 5秒后清除
-        }}
-
         document.getElementById('copy-btn').addEventListener('click', function() {{
             const textarea = document.getElementById('raw-html-source');
             
@@ -316,7 +269,6 @@ def upload_html_via_sftp(article_content, filename):
         sftp.close()
         transport.close()
         
-        # 清理本地临时文件
         os.remove(temp_filename)
         
         print(f"[SFTP] 文件已上传成功。")
@@ -331,15 +283,12 @@ def upload_html_via_sftp(article_content, filename):
 
 def push_article_link_to_bark(title, article_url):
     """推送文章链接到 Bark"""
-    bark_urls = [u.strip().rstrip("/") for u in BARK_URL.split(",") if u.strip()]
-    
-    link_body = f"""
-[{BRAND_NAME}日报] - 已更新：{article_url}
-    """
+    bark_urls = [u.strip().rstrip("/") for u in BARK_URL.split(",") if u.strip()]   
+    link_body = f"""[{BRAND_NAME}日报]"""
     payload = {
-        "title": f"{title} (源码复制)",
+        "title": f"{title}",
         "body": link_body,
-        "group": "每日新闻日报",
+        "group": "新视野N日报",
         "url": article_url
     }
 
