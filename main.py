@@ -62,9 +62,9 @@ def generate_styled_content(news_items, report_date, topic_name):
     生成带品牌化样式的 HTML 文章主体内容片段 (不包含 <html>, <body>)。
     """
     TOPIC_BANNERS = {
-        "Ai资讯": "",
-        "军事新闻": "",
-        "汽车新闻": "",
+        "Ai资讯": "https://github.com/amliubo/New-Vision/blob/main/img/1.png?raw=true",
+        "军事新闻": "https://github.com/amliubo/New-Vision/blob/main/img/2.png?raw=true",
+        "汽车新闻": "https://github.com/amliubo/New-Vision/blob/main/img/3.png?raw=true",
     }
     banner_url = TOPIC_BANNERS.get(topic_name)
     lines = []
@@ -103,10 +103,11 @@ def generate_styled_content(news_items, report_date, topic_name):
             """)
 
     lines.append(f"""
-        <img src="{QR_CODE_URL}" alt="二维码" 
-                style="width:180px;height:180px; margin:0 auto 0 auto; border-radius:6px; display:block;">
+        <div style='text-align:center; margin:6px 0 12px 0;'>
+            <img src="https://github.com/amliubo/New-Vision/blob/main/img/4.png?raw=true"
+                style="width:88%; max-width:390px; border-radius:10px; display:block; margin:0 auto;">
+        </div>
     """)
-
     return "".join(lines)
 
 def generate_simple_summary_card(news_items, report_title):
