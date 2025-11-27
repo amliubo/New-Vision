@@ -63,8 +63,8 @@ def generate_styled_content(news_items, report_date, topic_name):
     """
     TOPIC_BANNERS = {
         "Ai资讯": "https://github.com/amliubo/New-Vision/blob/main/img/1.png?raw=true",
-        "军事新闻": "https://github.com/amliubo/New-Vision/blob/main/img/2.png?raw=true",
-        "汽车新闻": "https://github.com/amliubo/New-Vision/blob/main/img/3.png?raw=true",
+        "汽车新闻": "https://github.com/amliubo/New-Vision/blob/main/img/2.png?raw=true",
+        "军事新闻": "https://github.com/amliubo/New-Vision/blob/main/img/3.png?raw=true",
     }
     banner_url = TOPIC_BANNERS.get(topic_name)
     lines = []
