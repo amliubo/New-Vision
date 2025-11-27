@@ -61,29 +61,19 @@ def generate_styled_content(news_items, report_date, topic_name):
     """
     生成带品牌化样式的 HTML 文章主体内容片段 (不包含 <html>, <body>)。
     """
+    TOPIC_BANNERS = {
+        "Ai资讯": "",
+        "军事新闻": "",
+        "汽车新闻": "",
+    }
+    banner_url = TOPIC_BANNERS.get(topic_name)
     lines = []
     
     # 🌟 A. 顶部品牌识别区 (Header)
     lines.append(f"""
-        <div style="
-            text-align:center;
-            padding: 1px 0;
-            margin: 4px 0 10px 0;
-            background:#F5F6F7;
-            border-radius:6px;
-            line-height:1;
-        ">
-            <div style="
-                font-size:18px;
-                font-weight:700;
-                color:{BRAND_COLOR};
-            ">{BRAND_NAME}</div>
-
-            <div style="
-                font-size:14px;
-                color:#777;
-                margin-top:1px;
-            ">{BRAND_SLOGAN}</div>
+        <div style='text-align:center; margin:6px 0 12px 0;'>
+            <img src="{banner_url}"
+                style="width:88%; max-width:390px; border-radius:10px; display:block; margin:0 auto;">
         </div>
     """)
 
