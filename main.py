@@ -1,44 +1,68 @@
-from datetime import datetime
-import requests
-import time
 import os
-import paramiko
+import time
+import json
+import requests
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+from openai import OpenAI
 
 # =================================================================
-# 您的配置信息
+# 配置信息
 # =================================================================
 
-# 天行数据 API Key
-TIAN_API_KEY = os.getenv("TIAN_API_KEY")
-# Bark 推送 URL
-BARK_URL = os.getenv("BARK_URL")
-# SFTP 配置 (您的实际服务器信息)
-SFTP_HOST = os.getenv("SFTP_HOST")         # 服务器 IP 或域名
-SFTP_PORT = int(os.getenv("SFTP_PORT"))    # SFTP 端口
-SFTP_USER = os.getenv("SFTP_USER")         # SFTP 用户名
-SFTP_PASS = os.getenv("SFTP_PASS")         # SFTP 密码或密钥路径
-# 远程上传目录，对应 Nginx 配置中的 /var/www/reports/
-REMOTE_UPLOAD_DIR = os.getenv("REMOTE_UPLOAD_DIR")
-# 公共访问 URL 前缀，对应您的域名配置
-PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL")
+TIAN_API_KEY = os.getenv("TIAN_API_KEY", "")
+BARK_URL = os.getenv("BARK_URL", "")
 
-# 品牌信息
-BRAND_NAME = "新视野N"
-BRAND_COLOR = "#1E88E5"
-BRAND_SLOGAN = "洞察趋势，拓展新视野"
-QR_CODE_URL = "https://github.com/amliubo/New-Vision/blob/main/QR.jpg?raw=true"
-# 主题配置
+MEDIASTACK_API_KEY = os.getenv("MEDIASTACK_API_KEY", "")
+MEDIASTACK_BASE_URL = os.getenv("MEDIASTACK_BASE_URL", "")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "") 
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "")
+# Supabase 配置
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+
+# 确保所有配置都已导入
+try:
+    from supabase import create_client, Client
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except ImportError:
+    print("Warning: Supabase client not initialized. Install 'supabase-py'.")
+    class MockSupabase:
+        def table(self, name): return self
+        def select(self, *args): return self
+        def eq(self, *args): return self
+        def limit(self, *args): return self
+        def execute(self): return type('MockResponse', (object,), {'data': []})()
+        def insert(self, record): return self
+    supabase = MockSupabase()
+except Exception as e:
+    print(f"Supabase Client Error: {e}")
+    class MockSupabase:
+        def table(self, name): return self
+        def select(self, *args): return self
+        def eq(self, *args): return self
+        def limit(self, *args): return self
+        def execute(self): return type('MockResponse', (object,), {'data': []})()
+        def insert(self, record): return self
+    supabase = MockSupabase()
+
+
 TOPICS = {
     "ai": "Ai资讯",
     "auto": "汽车新闻",
-    "military":"军事新闻",
+    "military": "军事新闻",
+    "world": "国际新闻 (MediaStack EN)",
 }
+
+openai_client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
+
 
 # =================================================================
 # 核心功能函数
 # =================================================================
 
-def fetch_tian_news(category="auto", num=50):
+def fetch_tian_news(category="auto", num=50) -> List[Dict[str, Any]]:
     """从天行数据接口获取新闻列表"""
     try:
         resp = requests.post(
@@ -57,274 +81,223 @@ def fetch_tian_news(category="auto", num=50):
         print(f"[错误] 拉取 {category} 新闻异常: {str(e)}")
         return []
 
-def generate_styled_content(news_items, report_date, topic_name):
-    """
-    生成带品牌化样式的 HTML 文章主体内容片段 (不包含 <html>, <body>)。
-    """
-    TOPIC_BANNERS = {
-        "Ai资讯": "https://github.com/amliubo/New-Vision/blob/main/img/1.png?raw=true",
-        "汽车新闻": "https://github.com/amliubo/New-Vision/blob/main/img/2.png?raw=true",
-        "军事新闻": "https://github.com/amliubo/New-Vision/blob/main/img/3.png?raw=true",
-    }
-    banner_url = TOPIC_BANNERS.get(topic_name)
-    lines = []
-    
-    # 🌟 A. 顶部品牌识别区 (Header)
-    lines.append(f"""
-        <div style='text-align:center; margin:6px 0 12px 0;'>
-            <img src="{banner_url}"
-                style="width:88%; max-width:390px; border-radius:10px; display:block; margin:0 auto;">
-        </div>
-    """)
-
-    for idx, n in enumerate(news_items, 1):
-        # 🌟 B. 新闻主体品牌润色 (标题和序号)
-        title = n.get("title", "") + "。"
-        
-        lines.append(f"""
-            <div style="display:flex; align-items:flex-start; margin-bottom: 10px; line-height: 1.5;">
-                <span style="font-size: 16px; font-weight: bold; color: white; background-color: {BRAND_COLOR}; padding: 4px 8px; border-radius: 4px; margin-right: 8px; flex-shrink: 0;">{idx}</span>
-                <p style="font-size: 16px; color: #333; font-weight: bold; margin: 0; flex-grow: 1;">{title}</p>
-            </div>
-        """)
-
-        pic = n.get("picUrl")
-        if pic:
-            lines.append(f'<img src="{pic}" style="width:100%;height:auto; display: block; border-radius: 8px; margin: 10px 0;"><br>')
-
-        desc = n.get("description", "")
-        if desc:
-            lines.append(f'<p style="font-size: 15px; color: #555; line-height: 1.7; margin: 0 0 5px 0; text-align: justify; text-indent: 2em;">{desc}</p>')
-
-        # 🌟 B. 新闻主体品牌润色 (分隔线)
-        if idx < len(news_items):
-            lines.append(f"""
-                <div style="width: 40px; height: 2px; background-color: #ddd; margin: 20px auto;"></div>
-            """)
-
-    lines.append(f"""
-        <div style='text-align:center; margin:6px 0 12px 0;'>
-            <img src="https://github.com/amliubo/New-Vision/blob/main/img/4.png?raw=true"
-                style="width:88%; max-width:390px; border-radius:10px; display:block; margin:0 auto;">
-        </div>
-    """)
-    return "".join(lines)
-
-def generate_simple_summary_card(news_items, report_title):
-    """生成一个简单的摘要卡片，用于浏览器预览"""
-    lines = [f"""
-    <div style="background-color: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 25px; font-family: 'Microsoft YaHei', sans-serif; max-width: 400px; margin: 20px auto;">
-        <h3 style="color: {BRAND_COLOR}; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px;">{report_title}</h3>
-        <ul style="list-style-type: none; padding: 0;">
-    """]
-    
-    for idx, n in enumerate(news_items, 1): 
-        title = n.get("title", "")
-        lines.append(f'<li style="margin-bottom: 12px; font-size: 15px;"><span style="color: {BRAND_COLOR}; font-weight: bold; margin-right: 5px;">{idx}.</span> {title}</li>')
-        
-    lines.append(f"""
-        </ul>
-        <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #aaa;">© {datetime.now().year} {BRAND_NAME}</p>
-    </div>
-    """)
-    return "".join(lines)
-
-
-def generate_full_html_document(title, styled_content, news_items):
-    """
-    将样式内容包装成完整的 HTML 文档，并添加复制功能。
-    """    
-    escaped_styled_content = styled_content.replace('<', '&lt;').replace('>', '&gt;')
-    simple_card_html = generate_simple_summary_card(news_items, title)
-    html_template = f"""<!DOCTYPE html>
-<html lang="zh">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title}</title>
-    <style>
-        body {{
-            font-family: "Microsoft YaHei", "微软雅黑", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-            line-height: 1.6;
-            color: #333;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4; /* 浅灰色背景 */
-        }}
-        #article-wrapper {{
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px 10px;
-        }}
-        /* 复制区域样式 */
-        #copy-area {{
-            background-color: #f0f7ff; /* 浅蓝色背景，更贴合品牌色 */
-            border: 1px solid {BRAND_COLOR};
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            text-align: center;
-        }}
-        .copy-button {{
-            background-color: {BRAND_COLOR};
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.3s;
-            margin-top: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        .copy-button:hover {{
-            background-color: #0d47a1;
-        }}
-        #raw-html-source {{
-            /* 保持隐藏 */
-            position: absolute;
-            left: -9999px;
-            width: 1px;
-            height: 1px;
-            opacity: 0;
-        }}
-        
-        /* 浏览器预览区样式 (只包含卡片) */
-        #article-content {{
-            padding: 15px 0; 
-        }}
-        
-    </style>
-</head>
-<body>
-    <div id="article-wrapper">
-        
-        <div id="copy-area">
-            <button class="copy-button" id="copy-btn">Copy Code</button>
-            <textarea id="raw-html-source">{escaped_styled_content}</textarea>
-        </div>
-        <div id="article-content">
-            {simple_card_html}
-        </div>
-    </div>
-    <script>
-        document.getElementById('copy-btn').addEventListener('click', function() {{
-            const textarea = document.getElementById('raw-html-source');
-            
-            // 确保内容被选中
-            textarea.select();
-            textarea.setSelectionRange(0, 99999); // 针对移动设备
-            
-            // 使用 execCommand('copy') (系统要求)
-            try {{
-                const successful = document.execCommand('copy');
-                if (successful) {{
-                    showStatus('源码已复制！', true);
-                }} else {{
-                    showStatus('复制失败！', false);
-                }}
-            }} catch (err) {{
-                showStatus('复制失败！', false);
-            }}
-        }});
-    </script>
-</body>
-</html>"""
-    return html_template
-
-
-def upload_html_via_sftp(article_content, filename):
-    """通过 SFTP 将 HTML 文件上传到远程服务器"""
-    
-    # 创建临时目录
-    temp_dir = "/tmp/newvision_reports"
-    os.makedirs(temp_dir, exist_ok=True)
-    temp_filename = os.path.join(temp_dir, filename)
-    
-    remote_path = os.path.join(REMOTE_UPLOAD_DIR, filename)
-    public_url = os.path.join(PUBLIC_BASE_URL, filename)
-    
-    # 将内容写入本地临时文件
-    with open(temp_filename, "w", encoding="utf-8") as f:
-        f.write(article_content)
-    
-    # SFTP 上传
+def fetch_mediastack_news(limit=50, lang='en', sources: Optional[str] = None, categories: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """从 MediaStack 接口获取新闻列表，允许指定语言和来源。"""
     try:
-        transport = paramiko.Transport((SFTP_HOST, SFTP_PORT))
-        transport.connect(username=SFTP_USER, password=SFTP_PASS)
-        sftp = paramiko.SFTPClient.from_transport(transport)
+        params = {
+            'access_key': MEDIASTACK_API_KEY,
+            'languages': lang,
+            'sort': 'published_desc',
+            'limit': limit,
+        }
         
-        print(f"[SFTP] 正在上传 {temp_filename} 到 {remote_path}")
-        sftp.put(temp_filename, remote_path)
+        if sources:
+            params['sources'] = sources
+            
+        if categories:
+            params['categories'] = ','.join(categories)
+
+        resp = requests.get(MEDIASTACK_BASE_URL, params=params, timeout=15)
+        resp.raise_for_status() 
         
-        sftp.close()
-        transport.close()
+        data = resp.json()
+        news_list = data.get("data", [])
+        print(f"[INFO] MediaStack ({lang}): 接口返回 {len(news_list)} 条新闻")
+        return news_list
         
-        os.remove(temp_filename)
+    except requests.exceptions.RequestException as e:
+        print(f"[错误] 拉取 MediaStack 新闻异常: {str(e)}")
+        return []
+
+def translate_and_summarize_by_gpt(title: str, description: str) -> Dict[str, str]:
+    """使用 ChatGPT API 翻译并简单解读新闻内容"""
+    
+    if not title and not description:
+        return {"title_zh": "", "summary_zh": ""}
+
+    print(f"[DeepSeek] 正在翻译和解读: {title[:30]}...")
         
-        print(f"[SFTP] 文件已上传成功。")
-        return public_url
+    prompt = f"""
+    请完成以下任务，并严格以 JSON 格式返回结果，JSON 中只包含 'title_zh' 和 'summary_zh' 两个键：
+    1. 将英文标题翻译成中文。
+    2. 将英文描述翻译成中文，并在此基础上生成一个 50 字以内的中文解读/摘要。
+    
+    英文标题 (Title): "{title}"
+    英文描述 (Description): "{description}"
+    
+    返回示例: {{"title_zh": "中文翻译标题", "summary_zh": "中文摘要解读内容..."}}
+    """
+    
+    try:
+        response = openai_client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=[
+                {"role": "system", "content": "你是一名专业的翻译和新闻摘要专家，请严格按照用户要求输出 JSON 格式的结果。"},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}, 
+            temperature=0.0
+        )
+        
+        result_json_str = response.choices[0].message.content.strip()
+        result = json.loads(result_json_str)
+        
+        return {
+            "title_zh": result.get("title_zh", title),
+            "summary_zh": result.get("summary_zh", description)
+        }
         
     except Exception as e:
-        print(f"[错误] SFTP 上传失败: {e}")
-        if os.path.exists(temp_filename):
-            os.remove(temp_filename)
-        return None
+        print(f"[错误] ChatGPT API 调用失败: {e}")
+        # 失败时返回原文
+        return {"title_zh": title, "summary_zh": description}
 
+def check_duplicate(title: str, publish_time: str, category: str) -> bool:
+    """检查 Supabase 中是否已存在相同标题和发布时间的新闻"""
+    try:
+        res = supabase.table("news_items").select("id").eq("title", title).eq("publish_time", publish_time).limit(1).execute()
+        return len(res.data) > 0
+    except Exception as e:
+        print(f"[错误] 检查重复数据时发生异常: {e}")
+        return False
 
-def push_article_link_to_bark(title, article_url):
-    """推送文章链接到 Bark"""
-    bark_urls = [u.strip().rstrip("/") for u in BARK_URL.split(",") if u.strip()]   
-    link_body = f"""[{BRAND_NAME}日报]"""
+def insert_news_to_supabase(news_items: List[Dict[str, Any]], category: str, api_source: str, source_format: str = 'tianapi'):
+    """将新闻条目写入 Supabase，并进行去重检查，source_format用于区分数据结构"""
+    inserted_count = 0
+    duplicate_count = 0
+    
+    for n in news_items:
+        if source_format == 'tianapi':
+            title = n.get("title", "")
+            publish_time = n.get("ctime", "")
+            description = n.get("description", "")
+            pic_url = n.get("picUrl", "")
+        elif source_format.startswith('mediastack'):
+            title = n.get("title", "")
+            publish_time = n.get("published_at", "")
+            description = n.get("description", "")
+            pic_url = n.get("image", "")
+            
+        # 排除没有标题或发布时间的条目
+        if not title or not publish_time:
+            continue 
+
+        if check_duplicate(title, publish_time, category):
+            duplicate_count += 1
+            continue
+
+        record = {
+            "category": category,
+            "title": title,
+            "description": description,
+            "pic_url": pic_url,
+            "api_source": api_source,
+            "publish_time": publish_time
+        }
+        
+        try:
+            if hasattr(supabase, 'table') and supabase.__class__.__name__ != 'MockSupabase':
+                supabase.table("news_items").insert(record).execute()
+                inserted_count += 1
+        except Exception as e:
+            print(f"[致命错误] 插入 Supabase 数据失败: {e}, record: {record}")
+            
+    print(f"[INFO] 已处理 {len(news_items)} 条 {category} 新闻。")
+    print(f"[INFO] 成功插入: {inserted_count} 条。已跳过重复数据: {duplicate_count} 条。")
+
+def push_news_to_bark(news_items: List[Dict[str, Any]], category: str, report_date: str, api_source: str):
+    """推送当日新闻标题到 Bark，并遵循新格式"""
+    if not BARK_URL or not news_items:
+        return
+    bark_urls = [u.strip().rstrip("/") for u in BARK_URL.split(",") if u.strip()] 
+    
+    # 1. 构造 Body 内容列表
+    content_lines = []
+    
+    # 2. Body 第一行：日期 + 分类
+    content_lines.append(f"{report_date} {TOPICS.get(category, category)}") 
+    
+    # 3. 循环添加新闻标题 (只添加标题，避免过长)
+    for i, n in enumerate(news_items):
+        title = n.get('title', '')
+        content_lines.append(f"{i+1}. {title}")
+
+    content = "\n".join(content_lines) + '日报'
+    
+    # 4. 构造 Payload
     payload = {
-        "title": f"{title}",
-        "body": link_body,
-        "group": "新视野N日报",
-        "url": article_url
+        "title": f"{report_date} {TOPICS.get(category, category)} ({api_source.capitalize()})",
+        "body": content,
+        "group": f"{TOPICS.get(category, category)}日报",
+        "level": "timeSensitive" if category == 'world' else "passive"
     }
 
     for bark in bark_urls:
         try:
             res = requests.post(bark, json=payload, timeout=15)
-            print(f"[Bark] 链接推送结果: {res.text}")
+            print(f"[Bark] 推送结果: {res.text}") 
         except Exception as e:
             print(f"[Bark 推送异常] {e}")
     time.sleep(1.5)
 
 
+# =================================================================
+# 主流程
+# =================================================================
 def main():
-    today = datetime.now().strftime("%Y-%m-%d")
+    today_str = datetime.now().strftime("%Y-%m-%d")
 
-    for category, topic_name in TOPICS.items():
+    # --- 1. Tian API 数据拉取 ---
+    print("\n--- 开始拉取 Tian API 数据 ---")
+    tian_categories = [k for k in TOPICS.keys() if k not in ('world')]
+    
+    for category in tian_categories:
+        topic_name = TOPICS.get(category, category)
         newslist = fetch_tian_news(category, num=50)
-        filtered = [n for n in newslist if n.get("ctime", "").startswith(today)]
+        filtered = [n for n in newslist if n.get("ctime", "").startswith(today_str)]
         print(f"[INFO] {topic_name} 当日新闻数量: {len(filtered)} 条")
 
-        if not filtered:
-            push_article_link_to_bark(f"{today} {topic_name}（无更新）", "今天没有新闻更新。")
-            continue
-
-        report_title = f"{today} {topic_name}日报"
-
-        # 1. 生成带品牌化的 HTML 内容片段 (这是要被复制的精简内容)
-        styled_content = generate_styled_content(filtered, today, topic_name)
-        
-        # 2. 包装成完整 HTML 文档，但预览区显示卡片 (已加入一键复制逻辑)
-        full_html_document = generate_full_html_document(report_title, styled_content, filtered)
-        
-        filename = f"{today}-{category}-{BRAND_NAME}.html" 
-        
-        # 3. 上传到服务器
-        article_url = upload_html_via_sftp(full_html_document, filename)
-        
-        if article_url:
-            # 4. 推送链接到 Bark
-            push_article_link_to_bark(report_title, article_url)
-            print(f"[完成] 已推送 {len(filtered)} 条 {topic_name} 新闻的链接到 Bark！")
+        if filtered:
+            insert_news_to_supabase(filtered, category, 'tianapi', source_format='tianapi')
+            push_news_to_bark(filtered, category, today_str, api_source='tianapi') 
         else:
-            print(f"[失败] 未能获取 {topic_name} 文章链接，未推送 Bark 通知。")
-
+            print(f"[INFO] {topic_name} 今日无新闻。")
         time.sleep(1.5)
+
+    # --- 2. MediaStack API 数据拉取 (只拉取英文，统一翻译) ---
+
+    # 2.1. 国际英文新闻
+    print("\n--- 2.1. 开始拉取 MediaStack 国际英文新闻 (翻译中) ---")
+    ms_en_news = fetch_mediastack_news(
+        limit=24,
+        lang='en', 
+        categories=['general', 'business','science', 'technology']
+    ) 
+    
+    ms_en_filtered = [n for n in ms_en_news if n.get("published_at", "").startswith(today_str)]
+    print(f"[INFO] {TOPICS['world']} 当日新闻数量: {len(ms_en_filtered)} 条")
+
+    if ms_en_filtered:
+        processed_news = []
+        for n in ms_en_filtered:
+            translation = translate_and_summarize_by_gpt(
+                n.get("title", ""),
+                n.get("description", "")
+            )
+            
+            n['title'] = translation['title_zh']
+            n['description'] = translation['summary_zh']
+            
+            processed_news.append(n)
+            time.sleep(0.5)
+            
+        insert_news_to_supabase(processed_news, 'world', 'mediastack', source_format='mediastack')
+        push_news_to_bark(processed_news, 'world', today_str, api_source='mediastack') 
+    else:
+        print(f"[INFO] {TOPICS['world']} 今日无新闻。")
+    time.sleep(1.5)
+
+    print("\n--- 数据采集完成 ---")
 
 
 if __name__ == "__main__":
